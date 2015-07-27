@@ -28,6 +28,7 @@
              {:id "min"
               :source-paths ["src"]
               :compiler {:output-to "resources/public/js/compiled/incdom.js"
+                         :externs ["externs/incremental-dom-externs.js"]
                          :main incdom.core
                          :optimizations :advanced
                          :pretty-print false}}]}
