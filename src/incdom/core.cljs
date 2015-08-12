@@ -1,7 +1,9 @@
 (ns ^:figwheel-always incdom.core
-    (:require [clojure.string :as s]))
+  (:require [goog.string :refer [splitLimit]]))
 
 (enable-console-print!)
+
+(def ^:private all-dot-re (js/RegExp. "\\." "g"))
 
 (defn- bench
   [fn]
@@ -11,44 +13,41 @@
     (.info js/console (str "Took " (- end start) "ms"))
     result))
 
-(defn- de-keyword 
-  [elem]
-  (if (keyword? elem)
-    (name elem)
-    (str elem)))
-
 (defn- extract-classes
+  "Extract tag and optional classes out of a keyword in the form :tag.cls1.cls2"
   [elem]
-  (let [[tn & cls] (s/split (de-keyword elem) ".")]
-    [tn (if (empty? cls) {} {:class (s/join " " cls)})]))
+  (let [[tn cls] (splitLimit (name elem) "." 1)]
+    [tn (if (empty? cls) {} {:class (.replace cls all-dot-re " ")})]))
 
-(defn- flatten-attr
-  [a v]
-  (condp (fn [[a-name v-check] [a v]] (and (v-check v) (or (nil? a-name) (= a-name a)))) [a v]
-    [:style map?] (s/join ";" (map (fn [[k v]] (str (de-keyword k) ":" v)) v))
-    [nil fn?] v
-    (str v)))
+(defn- convert-attr
+  "Convert an attr into a representation incdom allows ot use"
+  [attr]
+  (condp #(%1 %2) attr
+    map? (clj->js attr)
+    fn? attr
+    (str attr)))
 
-(defn- apply-incdom 
-  [incdom-fn elem attrs]
+(defn- build-apply-attrs
+  "Builds an JS array to be consumed via .apply for incdom void/open 
+  <tag> <key?> <static> <k,v>*"
+  [elem attrs]
   (let [[tag-name class-map] (extract-classes elem)
-        attrs (merge-with #(str %1 " " %2) attrs class-map) 
-        call-args (reduce 
-                    (fn [a [k v]]
-                      (.push a (name k))
-                      (.push a (flatten-attr k v))
-                      a)
-                    (array tag-name (:key attrs) nil)
-                    attrs)]
-    (.apply incdom-fn js/IncrementalDOM call-args)))
+        attrs (merge-with #(str %1 " " %2) attrs class-map)]
+    (reduce 
+      (fn [a [k v]]
+        (doto a
+          (.push (name k))
+          (.push (convert-attr v))))
+      (array tag-name (:key attrs) nil)
+      attrs)))
 
 (defn- element-void
   [elem attrs]
-  (apply-incdom (.-elementVoid js/IncrementalDOM) elem attrs))
+  (.apply (.-elementVoid js/IncrementalDOM) js/IncrementalDOM (build-apply-attrs elem attrs)))
 
 (defn- element-open 
   [elem attrs]
-  (apply-incdom (.-elementOpen js/IncrementalDOM) elem attrs))
+  (.apply (.-elementOpen js/IncrementalDOM) js/IncrementalDOM (build-apply-attrs elem attrs)))
 
 (defn- element-close
   [elem]
@@ -95,7 +94,8 @@
               [:div.row
                [:div.bolder {:rel-data "test" :class "bold"}
                 [:label "A Label"]
-                [:input {:static/type "text" :value (count @state)}]]
+                " "
+                [:input {:type "text" :value (count @state)}]]
                (into
                  [:div {:class "state"}]
                  (for [d @state] [:div {:style {:font-weight "bold"}} (str d)]))]]))))
