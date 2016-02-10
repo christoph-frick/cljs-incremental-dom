@@ -1,5 +1,5 @@
 (ns ^:figwheel-always incdom.core
-  (:require [goog.string :refer [splitLimit]]))
+  (:require [clojure.string :refer [split join]]))
 
 (enable-console-print!)
 
@@ -16,16 +16,16 @@
 (defn- extract-classes
   "Extract tag and optional classes out of a keyword in the form :tag.cls1.cls2"
   [elem]
-  (let [[tn cls] (splitLimit (name elem) "." 1)]
-    [tn (if (empty? cls) {} {:class (.replace cls all-dot-re " ")})]))
+  (let [[tn & cls] (split (name elem) ".")]
+    [tn (conj {} (when (seq? cls) [:class (join " " cls)]))]))
 
 (defn- convert-attr
   "Convert an attr into a representation incdom allows ot use"
   [attr]
-  (condp #(%1 %2) attr
-    map? (clj->js attr)
-    fn? attr
-    (str attr)))
+  (cond
+    (map? attr) (clj->js attr)
+    (fn? attr) attr
+    :else (str attr)))
 
 (defn- build-apply-attrs
   "Builds an JS array to be consumed via .apply for incdom void/open 
@@ -60,24 +60,22 @@
 (defn patch [root fn]
   (bench #(.patch js/IncrementalDOM root fn)))
 
-(defn- frest [s] [(first s) (rest s)])
-
 ; this might not even be close to the capabilities of hiccup
 (defn hiccup->incremental-dom
   [root]
-  (let [[elem remainder] (frest root)
-        [attr remainder] (if (map? (first remainder))
-                           (frest remainder)
-                           [{} remainder])]
+  (let [[elem & remainder] root
+        [attr & remainder] (if (map? (first remainder))
+                             remainder
+                             (conj remainder {}))]
     (if (empty? remainder)
       (element-void elem attr)
       (do
         (element-open elem attr)
         (doseq [r remainder]
-          (condp #(%1 %2) r
-            vector? (hiccup->incremental-dom r)
-            sequential? (doseq [rr r] (hiccup->incremental-dom rr))
-            (text r)))
+          (cond 
+            (vector? r) (hiccup->incremental-dom r)
+            (sequential? r) (doseq [rr r] (hiccup->incremental-dom rr))
+            :else (text r)))
         (element-close elem)))))
 
 (defonce state (atom ()))
