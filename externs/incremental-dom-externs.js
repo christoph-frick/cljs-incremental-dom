@@ -3,5 +3,7 @@ var IncrementalDOM = {
 	"elementVoid": function () {},
 	"elementOpen": function () {},
 	"elementClose": function () {},
-	"text": function () {}
+	"text": function () {},
+	"skip": function () {},
+	"currentElement": function () {}
 }
