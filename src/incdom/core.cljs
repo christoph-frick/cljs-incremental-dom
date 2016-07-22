@@ -19,22 +19,34 @@
   (let [[tn & cls] (split (name elem) ".")]
     [tn (conj {} (when (seq? cls) [:class (join " " cls)]))]))
 
-(defn- convert-attr
-  "Convert an attr into a representation incdom allows ot use"
-  [attr]
+(defn- convert-attr-name
+  "Coerce an attribute name into a string"
+  [attr-name]
   (cond
-    (map? attr) (clj->js attr)
-    (fn? attr) attr
-    :else (str attr)))
+    (keyword? attr-name) (name attr-name)
+    :else (str attr-name)))
+
+(defn- convert-attr-value
+  "Coerce an attribute value into a representation incdom allows to use"
+  [attr-value]
+  (cond
+    (map? attr-value) (clj->js attr-value)
+    (fn? attr-value) attr-value
+    :else (str attr-value)))
+
+(defn- attr
+  "Render an attribute via incdom"
+  [attr-name attr-value]
+  (.attr js/IncrementalDOM 
+         (convert-attr-name attr-name) 
+         (convert-attr-value attr-value)))
 
 (defn- element-open 
   [elem attrs]
   (let [[tag-name class-map] (extract-classes elem)
         attrs (merge-with #(str %1 " " %2) attrs class-map)]
     (.elementOpenStart js/IncrementalDOM tag-name (:key attrs) nil)
-    (run! (fn [[k v]]
-            (.attr js/IncrementalDOM (name k) (convert-attr v))) 
-          attrs)
+    (run! (partial apply attr) attrs)
     (.elementOpenEnd js/IncrementalDOM tag-name)))
 
 (defn- element-close
