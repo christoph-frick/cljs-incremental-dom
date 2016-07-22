@@ -27,31 +27,25 @@
     (fn? attr) attr
     :else (str attr)))
 
-(defn- build-apply-attrs
-  "Builds an JS array to be consumed via .apply for incdom void/open 
-  <tag> <key?> <static> <k,v>*"
+(defn- element-open 
   [elem attrs]
   (let [[tag-name class-map] (extract-classes elem)
         attrs (merge-with #(str %1 " " %2) attrs class-map)]
-    (reduce 
-      (fn [a [k v]]
-        (doto a
-          (.push (name k))
-          (.push (convert-attr v))))
-      (array tag-name (:key attrs) nil)
-      attrs)))
-
-(defn- element-void
-  [elem attrs]
-  (.apply (.-elementVoid js/IncrementalDOM) js/IncrementalDOM (build-apply-attrs elem attrs)))
-
-(defn- element-open 
-  [elem attrs]
-  (.apply (.-elementOpen js/IncrementalDOM) js/IncrementalDOM (build-apply-attrs elem attrs)))
+    (.elementOpenStart js/IncrementalDOM tag-name (:key attrs) nil)
+    (run! (fn [[k v]]
+            (.attr js/IncrementalDOM (name k) (convert-attr v))) 
+          attrs)
+    (.elementOpenEnd js/IncrementalDOM tag-name)))
 
 (defn- element-close
   [elem]
   (.elementClose js/IncrementalDOM elem))
+
+(defn- element-void
+  [elem attrs]
+  (do
+    (element-open elem attrs)
+    (element-close elem)))
 
 (defn- text 
   [txt]
