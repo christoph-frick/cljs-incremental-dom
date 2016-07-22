@@ -52,7 +52,7 @@
   (.text js/IncrementalDOM (str txt)))
 
 (defn patch [root fn]
-  (bench #(.patch js/IncrementalDOM root fn)))
+  (.patch js/IncrementalDOM root fn))
 
 ; this might not even be close to the capabilities of hiccup
 (defn hiccup->incremental-dom
@@ -75,22 +75,23 @@
 (defonce state (atom ()))
 
 (defn render! []
-  (patch (.getElementById js/document "app")
-         (fn []
-           (hiccup->incremental-dom 
-             [:div.main
-              [:div
-               "Some plain text"
-               " "
-               [:strong "Some strong text"]]
-              [:div.row
-               [:div.bolder {:rel-data "test" :class "bold"}
-                [:label "A Label"]
-                " "
-                [:input {:type "text" :value (count @state)}]]
-               (into
-                 [:div {:class "state"}]
-                 (for [d @state] [:div {:style {:font-weight "bold"}} (str d)]))]]))))
+  (bench 
+    #(patch (.getElementById js/document "app")
+            (fn []
+              (hiccup->incremental-dom 
+                [:div.main
+                 [:div
+                  "Some plain text"
+                  " "
+                  [:strong "Some strong text"]]
+                 [:div.row
+                  [:div.bolder {:rel-data "test" :class "bold"}
+                   [:label "A Label"]
+                   " "
+                   [:input {:type "text" :value (count @state)}]]
+                  (into
+                    [:div {:class "state"}]
+                    (for [d @state] [:div {:style {:font-weight "bold"}} (str d)]))]])))))
 
 (add-watch state :render render!)
 
